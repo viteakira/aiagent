@@ -1,6 +1,6 @@
 import argparse
-import json
 import os
+import sys
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -29,32 +29,48 @@ messages = [
     {"role": "user", "content": prompt},
 ]
 
-response = client.chat.completions.create(
-    model="openrouter/free",
-    messages=messages,
-    tools=available_functions,
-    temperature=0,
-)
+broken = False
+counter = 0
+limit = 20
 
-if response.usage == None:
-    raise RuntimeError("usage is None")
-promptTokens = response.usage.prompt_tokens
-completionTokens = response.usage.completion_tokens
-answer = response.choices[0].message.content
+while counter < limit:
+    response = client.chat.completions.create(
+        model="openrouter/free",
+        messages=messages,
+        tools=available_functions,
+        temperature=0,
+    )
 
-message = response.choices[0].message
+    if response.usage == None:
+        raise RuntimeError("usage is None")
 
-if message.tool_calls:
-    for tool_call in message.tool_calls:
-        result_message = call_function(tool_call, verbose)
+    message = response.choices[0].message
+    messages.append(message)
 
-        if not result_message["content"]: raise Exception("Error: Content is None")
+    promptTokens = response.usage.prompt_tokens
+    completionTokens = response.usage.completion_tokens
+    answer = message.content
 
-        if (verbose) :
-            print(f"User prompt: {prompt}")
-            print(f"Prompt tokens: {promptTokens}")
-            print(f"Response tokens: {completionTokens}")
-            print(f"-> {result_message['content']}")
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            result_message = call_function(tool_call, verbose)
 
-else:
-    print(f"Response: {answer}")
+            if not result_message["content"]: raise Exception("Error: Content is None")
+
+            messages.append(result_message)
+
+            if (verbose) :
+                print(f"User prompt: {prompt}")
+                print(f"Prompt tokens: {promptTokens}")
+                print(f"Response tokens: {completionTokens}")
+                print(f"-> {result_message['content']}")
+        counter+= 1
+
+    else:
+        print(f"Response: {answer}") # call the model, handle responses, etc.
+        broken = True
+        break;
+
+if not broken:
+    print("Error: Agent could not complete the task")
+    sys.exit(1)
