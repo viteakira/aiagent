@@ -20,8 +20,16 @@ client = OpenAI(
 )
 
 parser = argparse.ArgumentParser(description="Chatbot")
+
 parser.add_argument("user_prompt", type=str, help="User prompt")
 parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+parser.add_argument(
+    "--working-directory",
+    "-w",
+    default=".",
+    help="Working directory for the agent",
+)
+
 args = parser.parse_args()
 
 prompt = args.user_prompt
@@ -33,10 +41,10 @@ messages = [
 ]
 
 broken = False
-counter = 0
+tool_calls_made = 0
 limit = 20
 
-while counter < limit:
+while tool_calls_made < limit:
     response = client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=messages,
@@ -56,7 +64,11 @@ while counter < limit:
 
     if message.tool_calls:
         for tool_call in message.tool_calls:
-            result_message = call_function(tool_call, verbose)
+            result_message = call_function(
+                tool_call,
+                verbose,
+                args.working_directory,
+            )
 
             if not result_message["content"]: raise Exception("Error: Content is None")
 
@@ -67,12 +79,12 @@ while counter < limit:
                 print(f"Prompt tokens: {promptTokens}")
                 print(f"Response tokens: {completionTokens}")
                 print(f"-> {result_message['content']}")
-        counter+= 1
+        tool_calls_made+= 1
 
     else:
         print(f"Response: {answer}") # call the model, handle responses, etc.
         broken = True
-        break;
+        break
 
 if not broken:
     print("Error: Agent could not complete the task")
