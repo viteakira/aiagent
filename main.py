@@ -9,10 +9,13 @@ from call_function import available_functions, call_function
 from prompts import system_prompt
 
 load_dotenv()
-api_key = os.environ.get("OPENROUTER_API_KEY")
+api_key = os.environ.get("GROQ_API_KEY")
+
+if not api_key:
+    raise RuntimeError("GROQ_API_KEY not found in environment")
 
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://api.groq.com/openai/v1",
     api_key=api_key,
 )
 
@@ -35,14 +38,14 @@ limit = 20
 
 while counter < limit:
     response = client.chat.completions.create(
-        model="openrouter/free",
+        model="openai/gpt-oss-120b",
         messages=messages,
         tools=available_functions,
         temperature=0,
     )
 
-    if response.usage == None:
-        raise RuntimeError("usage is None")
+    if not getattr(response, "usage", None):
+            raise RuntimeError("usage is missing from the Groq response")
 
     message = response.choices[0].message
     messages.append(message)
